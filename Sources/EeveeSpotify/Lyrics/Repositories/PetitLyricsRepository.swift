@@ -16,8 +16,15 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
 
     // MARK: - XMLParserDelegate
 
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
-        var dict: [String: Any] = attributeDict
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String]) {
+        var dict: [String: Any] = [:]
+        for (key, value) in attributeDict {
+            if let intValue = Int(value) {
+                dict[key] = intValue
+            } else {
+                dict[key] = value
+            }
+        }
         dictionaryStack.append(dict)
         textInProgress = ""
     }
