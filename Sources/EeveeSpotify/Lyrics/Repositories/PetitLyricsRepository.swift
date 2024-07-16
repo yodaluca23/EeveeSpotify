@@ -138,10 +138,12 @@ struct PetitLyricsRepository: LyricsRepository {
         let parser = XMLDictionaryParser()
         let parsedDictionary = parser.parse(data: response)
         
-        guard let songs = parsedDictionary["songs"] as? [String: Any],
+        guard let parsedDict = parsedDictionary,
+              let songs = parsedDict["songs"] as? [String: Any],
               let returnedCount = songs["returnedCount"] as? Int, returnedCount > 0 else {
             throw LyricsError.NoSuchSong
         }
+
         
         guard let song = songs["song"] as? [String: Any],
               let lyricsDataBase64 = song["lyricsData"] as? String,
@@ -155,7 +157,9 @@ struct PetitLyricsRepository: LyricsRepository {
             petitLyricsQuery["lyricsType"] = "1"
             let responsetype1 = try perform(petitLyricsQuery)
             let parser = XMLDictionaryParser()
-            let parsedDictionary1 = parser.parse(data: responsetype1)
+            guard let parsedDictionary1 = parser.parse(data: responsetype1) else {
+                throw LyricsError.DecodingError
+            }
             
             guard let songs = parsedDictionary1["songs"] as? [String: Any],
                   let song = songs["song"] as? [String: Any],
@@ -174,7 +178,7 @@ struct PetitLyricsRepository: LyricsRepository {
             return LyricsDto(lines: lines, timeSynced: false)
         }
         
-        if availableLyricsType == 3 {
+        if lyricsType == 3 {
             let lines = try mapTimeSyncedLyrics(lyricsData)
             return LyricsDto(lines: lines, timeSynced: true)
         }
