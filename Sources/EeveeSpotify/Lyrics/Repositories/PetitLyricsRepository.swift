@@ -50,7 +50,7 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
             dictionaryStack.append(dict)
         }
         textInProgress = ""
-        NSLog("[EeveeSpotify] End Element: \(elementName), dictionary: \(dict)")
+        print("[EeveeSpotify] End Element: \(elementName), dictionary: \(dict)")
     }
 }
 
@@ -145,13 +145,12 @@ struct PetitLyricsRepository: LyricsRepository {
         
         guard let parsedDict = parsedDictionary,
               let songs = parsedDict["songs"] as? [String: Any],
-              let returnedCount = songs["returnedCount"] as? Int, returnedCount > 0 else {
+              let song = songs["song"] as? [String: Any] else {
             throw LyricsError.NoSuchSong
         }
 
         
-        guard let song = songs["song"] as? [String: Any],
-              let lyricsDataBase64 = song["lyricsData"] as? String,
+        guard let lyricsDataBase64 = song["lyricsData"] as? String,
               let lyricsType = song["lyricsType"] as? Int else {
             throw LyricsError.DecodingError
         }
