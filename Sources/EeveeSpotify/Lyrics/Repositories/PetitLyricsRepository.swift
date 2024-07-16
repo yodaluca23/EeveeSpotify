@@ -1,5 +1,54 @@
 import Foundation
 
+class XMLDictionaryParser: NSObject, XMLParserDelegate {
+    private var dictionaryStack: [[String: Any]] = []
+    private var textInProgress: String = ""
+
+    func parse(data: Data) -> [String: Any]? {
+        let parser = XMLParser(data: data)
+        parser.delegate = self
+        guard parser.parse() else {
+            return nil
+        }
+        return dictionaryStack.first
+    }
+
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+        var dict = attributeDict
+        dict["_name"] = elementName
+        dictionaryStack.append(dict)
+        textInProgress = ""
+    }
+
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        textInProgress += string
+    }
+
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        var dict = dictionaryStack.popLast()!
+        if !textInProgress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            dict["_text"] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        
+        if var top = dictionaryStack.last {
+            if var existingValue = top[elementName] {
+                if var array = existingValue as? [[String: Any]] {
+                    array.append(dict)
+                    top[elementName] = array
+                } else if let existingDict = existingValue as? [String: Any] {
+                    top[elementName] = [existingDict, dict]
+                }
+            } else {
+                top[elementName] = dict
+            }
+            dictionaryStack[dictionaryStack.count - 1] = top
+        } else {
+            dictionaryStack.append(dict)
+        }
+        textInProgress = ""
+    }
+}
+
 struct PetitLyricsRepository: LyricsRepository {
     private let apiUrl = "https://p1.petitlyrics.com/api/GetPetitLyricsData.php"
     private let session: URLSession
@@ -43,18 +92,6 @@ struct PetitLyricsRepository: LyricsRepository {
         return data!
     }
     
-    private func parseXML(_ data: Data) throws -> [String: Any] {
-        let parser = XMLParser(data: data)
-        let delegate = XMLParserDelegateImpl()
-        parser.delegate = delegate
-        
-        if parser.parse() {
-            return delegate.result
-        } else {
-            throw LyricsError.DecodingError
-        }
-    }
-    
     private func decodeBase64(_ base64String: String) throws -> Data {
         guard let data = Data(base64Encoded: base64String) else {
             throw LyricsError.DecodingError
@@ -63,15 +100,28 @@ struct PetitLyricsRepository: LyricsRepository {
     }
     
     private func mapTimeSyncedLyrics(_ xmlData: Data) throws -> [LyricsLineDto] {
-        let parser = XMLParser(data: xmlData)
-        let delegate = TimeSyncedLyricsParserDelegate()
-        parser.delegate = delegate
-        
-        if parser.parse() {
-            return delegate.lines
-        } else {
+        guard let parsedDictionary = XMLDictionaryParser().parse(data: xmlData),
+              let wsy = parsedDictionary["wsy"] as? [String: Any],
+              let lines = wsy["line"] as? [[String: Any]] else {
             throw LyricsError.DecodingError
         }
+        
+        var lyricsLines: [LyricsLineDto] = []
+        
+        for line in lines {
+            guard let lineString = line["linestring"] as? String,
+                  let words = line["word"] as? [[String: Any]],
+                  let firstWord = words.first,
+                  let startTimeString = firstWord["starttime"] as? String,
+                  let startTime = Int(startTimeString) else {
+                continue // Skip lines that don't have necessary data
+            }
+            
+            let lyricsLineDto = LyricsLineDto(content: lineString, startTime: startTime)
+            lyricsLines.append(lyricsLineDto)
+        }
+        
+        return lyricsLines
     }
     
     func getLyrics(_ query: LyricsSearchQuery, options: LyricsOptions) throws -> LyricsDto {
@@ -85,27 +135,35 @@ struct PetitLyricsRepository: LyricsRepository {
         ]
         
         let data = try perform(petitLyricsQuery)
-        let xmlResponse = try parseXML(data)
+        guard let response = data.xml(using: .utf8) else {
+            throw LyricsError.DecodingError
+        }
+        let parser = XMLDictionaryParser()
+        let parsedDictionary = parser.parse(data: response)
         
-        guard let returnedCount = xmlResponse["returnedCount"] as? Int, returnedCount > 0 else {
+        guard let songs = parsedDictionary["songs"] as? [String: Any],
+              let returnedCount = songs["returnedCount"] as? Int, returnedCount > 0 else {
             throw LyricsError.NoSuchSong
         }
         
-        guard let songs = xmlResponse["songs"] as? [String: Any],
-              let song = songs["song"] as? [String: Any],
+        guard let song = songs["song"] as? [String: Any],
               let lyricsDataBase64 = song["lyricsData"] as? String,
-              let availableLyricsType = song["availableLyricsType"] as? Int else {
+              let lyricsType = song["lyricsType"] as? Int else {
             throw LyricsError.DecodingError
         }
         
         let lyricsData = try decodeBase64(lyricsDataBase64)
         
-        if availableLyricsType == 2 {
+        if lyricsType == 2 {
             petitLyricsQuery["lyricsType"] = "1"
             let data = try perform(petitLyricsQuery)
-            let xmlResponse = try parseXML(data)
+            guard let responsetype1 = data.xml(using: .utf8) else {
+                throw LyricsError.DecodingError
+            }
+            let parser = XMLDictionaryParser()
+            let parsedDictionary1 = parser.parse(data: responsetype1)
             
-            guard let songs = xmlResponse["songs"] as? [String: Any],
+            guard let songs = parsedDictionary1["songs"] as? [String: Any],
                   let song = songs["song"] as? [String: Any],
                   let lyricsDataBase64 = song["lyricsData"] as? String else {
                 throw LyricsError.DecodingError
@@ -127,62 +185,5 @@ struct PetitLyricsRepository: LyricsRepository {
             return LyricsDto(lines: lines, timeSynced: true)
         }
         
-        throw LyricsError.DecodingError
-    }
-}
-
-private class XMLParserDelegateImpl: NSObject, XMLParserDelegate {
-    var result: [String: Any] = [:]
-    private var currentElement: String = ""
-    private var currentSong: [String: Any] = [:]
-    
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
-        currentElement = elementName
-    }
-    
-    func parser(_ parser: XMLParser, foundCharacters string: String) {
-        if currentElement == "returnedCount" || currentElement == "availableLyricsType" {
-            result[currentElement] = Int(string)
-        } else if currentElement == "lyricsData" {
-            currentSong[currentElement] = string
-        } else {
-            currentSong[currentElement] = string
-        }
-    }
-    
-    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        if elementName == "song" {
-            result["song"] = currentSong
-            currentSong = [:]
-        }
-    }
-}
-
-private class TimeSyncedLyricsParserDelegate: NSObject, XMLParserDelegate {
-    var lines: [LyricsLineDto] = []
-    private var currentElement: String = ""
-    private var currentLine: LyricsLineDto?
-    private var currentStartTime: Int?
-    
-    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
-        currentElement = elementName
-    }
-    
-    func parser(_ parser: XMLParser, foundCharacters string: String) {
-        if currentElement == "linestring" {
-            currentLine = LyricsLineDto(content: string)
-        } else if currentElement == "starttime" {
-            currentStartTime = Int(string)
-        }
-    }
-    
-    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        if elementName == "line" {
-            if let line = currentLine, let startTime = currentStartTime {
-                lines.append(LyricsLineDto(content: line.content, offsetMs: startTime))
-            }
-            currentLine = nil
-            currentStartTime = nil
-        }
     }
 }
