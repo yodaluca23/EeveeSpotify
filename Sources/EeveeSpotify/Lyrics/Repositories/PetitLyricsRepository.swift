@@ -91,7 +91,8 @@ struct PetitLyricsRepository: LyricsRepository {
             throw LyricsError.NoSuchSong
         }
         
-        guard let song = xmlResponse["song"] as? [String: Any],
+        guard let songs = xmlResponse["songs"] as? [String: Any],
+              let song = songs["song"] as? [String: Any],
               let lyricsDataBase64 = song["lyricsData"] as? String,
               let availableLyricsType = song["availableLyricsType"] as? Int else {
             throw LyricsError.DecodingError
@@ -104,7 +105,8 @@ struct PetitLyricsRepository: LyricsRepository {
             let data = try perform(petitLyricsQuery)
             let xmlResponse = try parseXML(data)
             
-            guard let song = xmlResponse["song"] as? [String: Any],
+            guard let songs = xmlResponse["songs"] as? [String: Any],
+                  let song = songs["song"] as? [String: Any],
                   let lyricsDataBase64 = song["lyricsData"] as? String else {
                 throw LyricsError.DecodingError
             }
