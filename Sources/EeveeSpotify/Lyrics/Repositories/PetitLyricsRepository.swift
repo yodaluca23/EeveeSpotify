@@ -154,13 +154,11 @@ struct PetitLyricsRepository: LyricsRepository {
         }
 
         
-        guard let lyricsDataBase64 = song["lyricsData"],
-              let lyricsType = song["lyricsType"] else {
+        guard let lyricsDataBase64 = song["lyricsData"] as? [String: String],
+              let lyricsType = song["lyricsType"] as? [String: Int] else {
             throw LyricsError.DecodingError
         }
         
-        let lyricsData = String(lyricsData)
-        let lyricsType = Int(lyricsType)
 
         let lyricsData = try decodeBase64(lyricsDataBase64)
         
