@@ -36,7 +36,11 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
         var dict = dictionaryStack.popLast()!
         if !textInProgress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            dict[elementName] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let intValue = Int(textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                dict[elementName] = intValue
+            } else {
+                dict[elementName] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
         }
         
         if var top = dictionaryStack.last {
