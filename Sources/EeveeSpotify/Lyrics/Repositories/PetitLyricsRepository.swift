@@ -3,7 +3,7 @@ import Foundation
 class XMLDictionaryParser: NSObject, XMLParserDelegate {
     private var dictionaryStack: [[String: Any]] = []
     private var textInProgress: String = ""
-
+    
     func parse(data: Data) -> [String: Any]? {
         let parser = XMLParser(data: data)
         parser.delegate = self
@@ -18,25 +18,22 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
         var dict = attributeDict
-        dict["_name"] = elementName
         dictionaryStack.append(dict)
         textInProgress = ""
-        NSLog("[EeveeSpotify] Start Element: \(elementName), attributes: \(attributeDict)")
     }
 
     func parser(_ parser: XMLParser, foundCharacters string: String) {
         textInProgress += string
-        NSLog("[EeveeSpotify] Found characters: \(string)")
     }
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
         var dict = dictionaryStack.popLast()!
         if !textInProgress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            dict["_text"] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
+            dict[elementName] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         
         if var top = dictionaryStack.last {
-            if let existingValue = top[elementName] {
+            if var existingValue = top[elementName] {
                 if var array = existingValue as? [[String: Any]] {
                     array.append(dict)
                     top[elementName] = array
@@ -54,6 +51,7 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
         NSLog("[EeveeSpotify] End Element: \(elementName), dictionary: \(dict)")
     }
 }
+
 struct PetitLyricsRepository: LyricsRepository {
     private let apiUrl = "https://p1.petitlyrics.com/api/GetPetitLyricsData.php"
     private let session: URLSession
