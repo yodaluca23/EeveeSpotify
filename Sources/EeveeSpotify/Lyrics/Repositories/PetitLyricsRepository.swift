@@ -183,5 +183,6 @@ struct PetitLyricsRepository: LyricsRepository {
             return LyricsDto(lines: lines, timeSynced: true)
         }
         
+        throw LyricsError.DecodingError
     }
 }
