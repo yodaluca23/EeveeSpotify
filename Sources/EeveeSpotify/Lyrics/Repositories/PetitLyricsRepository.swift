@@ -8,20 +8,25 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
         let parser = XMLParser(data: data)
         parser.delegate = self
         guard parser.parse() else {
+            NSLog("[EeveeSpotify] Failed to parse XML")
             return nil
         }
         return dictionaryStack.first
     }
+
+    // MARK: - XMLParserDelegate
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
         var dict = attributeDict
         dict["_name"] = elementName
         dictionaryStack.append(dict)
         textInProgress = ""
+        NSLog("[EeveeSpotify] Start Element: \(elementName), attributes: \(attributeDict)")
     }
 
     func parser(_ parser: XMLParser, foundCharacters string: String) {
         textInProgress += string
+        NSLog("[EeveeSpotify] Found characters: \(string)")
     }
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
@@ -31,7 +36,7 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
         }
         
         if var top = dictionaryStack.last {
-            if var existingValue = top[elementName] {
+            if let existingValue = top[elementName] {
                 if var array = existingValue as? [[String: Any]] {
                     array.append(dict)
                     top[elementName] = array
@@ -46,9 +51,9 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
             dictionaryStack.append(dict)
         }
         textInProgress = ""
+        NSLog("[EeveeSpotify] End Element: \(elementName), dictionary: \(dict)")
     }
 }
-
 struct PetitLyricsRepository: LyricsRepository {
     private let apiUrl = "https://p1.petitlyrics.com/api/GetPetitLyricsData.php"
     private let session: URLSession
