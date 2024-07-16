@@ -1,7 +1,6 @@
 import Foundation
 
 class XMLDictionaryParser: NSObject, XMLParserDelegate {
-    NSLog("[EeveeSpotify] Converting XML to Dict")
     private var dictionaryStack: [[String: Any]] = []
     private var textInProgress: String = ""
     
@@ -14,7 +13,7 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
         }
         return dictionaryStack.first
     }
-
+    NSLog("[EeveeSpotify] Converting XML to Dict")
     // MARK: - XMLParserDelegate
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
