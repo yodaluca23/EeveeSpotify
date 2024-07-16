@@ -117,7 +117,7 @@ struct PetitLyricsRepository: LyricsRepository {
                 continue // Skip lines that don't have necessary data
             }
             
-            let lyricsLineDto = LyricsLineDto(content: lineString, startTime: startTime)
+            let lyricsLineDto = LyricsLineDto(content: lineString, offsetMs: startTime)
             lyricsLines.append(lyricsLineDto)
         }
         
@@ -134,10 +134,7 @@ struct PetitLyricsRepository: LyricsRepository {
             "lyricsType": "3"
         ]
         
-        let data = try perform(petitLyricsQuery)
-        guard let response = data.xml(using: .utf8) else {
-            throw LyricsError.DecodingError
-        }
+        let response = try perform(petitLyricsQuery)
         let parser = XMLDictionaryParser()
         let parsedDictionary = parser.parse(data: response)
         
@@ -156,10 +153,7 @@ struct PetitLyricsRepository: LyricsRepository {
         
         if lyricsType == 2 {
             petitLyricsQuery["lyricsType"] = "1"
-            let data = try perform(petitLyricsQuery)
-            guard let responsetype1 = data.xml(using: .utf8) else {
-                throw LyricsError.DecodingError
-            }
+            let responsetype1 = try perform(petitLyricsQuery)
             let parser = XMLDictionaryParser()
             let parsedDictionary1 = parser.parse(data: responsetype1)
             
@@ -175,7 +169,7 @@ struct PetitLyricsRepository: LyricsRepository {
             return LyricsDto(lines: lines, timeSynced: false)
         }
         
-        if availableLyricsType == 1 {
+        if lyricsType == 1 {
             let lines = String(data: lyricsData, encoding: .utf8)?.components(separatedBy: "\n").map { LyricsLineDto(content: $0) } ?? []
             return LyricsDto(lines: lines, timeSynced: false)
         }
