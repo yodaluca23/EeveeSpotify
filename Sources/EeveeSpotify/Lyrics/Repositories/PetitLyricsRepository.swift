@@ -27,12 +27,9 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        let trimmedText = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
         var dict = dictionaryStack.popLast()!
-        
-        // If text is not empty, add it to the dictionary
-        if !trimmedText.isEmpty {
-            dict[elementName] = trimmedText
+        if !textInProgress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            dict[elementName] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         
         if var top = dictionaryStack.last {
@@ -40,13 +37,13 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
                 if var array = existingValue as? [[String: Any]] {
                     array.append(dict)
                     top[elementName] = array
-                } else if let existingDict = existingValue as? [String: Any] {
-                    top[elementName] = [existingDict, dict]
-                } else if let existingString = existingValue as? String {
-                    top[elementName] = [existingString, trimmedText]
+                } else {
+                    top[elementName] = [existingValue, dict]
                 }
+            } else if dict.count == 1, let key = dict.keys.first, let value = dict[key] {
+                top[elementName] = value
             } else {
-                top[elementName] = dict.isEmpty ? trimmedText : dict
+                top[elementName] = dict
             }
             dictionaryStack[dictionaryStack.count - 1] = top
         } else {
