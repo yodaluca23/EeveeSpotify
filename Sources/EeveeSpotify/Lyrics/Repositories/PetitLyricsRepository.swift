@@ -118,7 +118,7 @@ struct PetitLyricsRepository: LyricsRepository {
     }
     
     private func mapTimeSyncedLyrics(_ xmlData: Data) throws -> [LyricsLineDto] {
-        NSLog("[EeveeSpotify] Mapping Time synced")
+        NSLog("[EeveeSpotify] Mapping Time synced (wsy)")
         guard let parsedDictionary = XMLDictionaryParser().parse(data: xmlData),
               let wsy = parsedDictionary["wsy"] as? [String: Any],
               let lines = wsy["line"] as? [[String: Any]] else {
@@ -126,14 +126,13 @@ struct PetitLyricsRepository: LyricsRepository {
         }
         
         var lyricsLines: [LyricsLineDto] = []
-        
+        NSLog("[EeveeSpotify] Mapping Time synced (Lines)")
         for line in lines {
             guard let lineString = line["linestring"] as? String,
                   let words = line["word"] as? [[String: Any]],
                   let firstWord = words.first,
-                  let startTimeString = firstWord["starttime"] as? String,
-                  let startTime = Int(startTimeString) else {
-                continue // Skip lines that don't have necessary data
+                  let startTimeString = firstWord["starttime"] as? Int else {
+                  continue // Skip lines that don't have necessary data
             }
             
             let lyricsLineDto = LyricsLineDto(content: lineString, offsetMs: startTime)
@@ -188,14 +187,22 @@ struct PetitLyricsRepository: LyricsRepository {
             }
             
             let lyricsData = try decodeBase64(lyricsDataBase64)
-            let lines = String(data: lyricsData, encoding: .utf8)?.components(separatedBy: "\n").map { LyricsLineDto(content: $0) } ?? []
-            
+            let lines = String(data: lyricsData, encoding: .utf8)?
+                .components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .map { LyricsLineDto(content: $0) } ?? []
             return LyricsDto(lines: lines, timeSynced: false)
         }
         
         if lyricsType == 1 {
-            let lines = String(data: lyricsData, encoding: .utf8)?.components(separatedBy: "\n").map { LyricsLineDto(content: $0) } ?? []
+            let lines = String(data: lyricsData, encoding: .utf8)?
+                .components(separatedBy: "\n")
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .map { LyricsLineDto(content: $0) } ?? []
             return LyricsDto(lines: lines, timeSynced: false)
+
         }
         
         if lyricsType == 3 {
