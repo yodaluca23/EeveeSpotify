@@ -120,7 +120,6 @@ struct PetitLyricsRepository: LyricsRepository {
     private func mapTimeSyncedLyrics(_ xmlData: Data) throws -> [LyricsLineDto] {
         NSLog("[EeveeSpotify] Mapping Time synced (wsy)")
         guard let parsedDictionary = XMLDictionaryParser().parse(data: xmlData),
-              NSLog("Complete Time Synced Lyrics Dict: \(parsedDictionary)")
               let lines = parsedDictionary["line"] as? [String: Any] else {
             throw LyricsError.DecodingError
         }
