@@ -3,7 +3,8 @@ import Foundation
 class XMLDictionaryParser: NSObject, XMLParserDelegate {
     private var dictionaryStack: [[String: Any]] = []
     private var textInProgress: String = ""
-    
+    private var currentElementName: String?
+
     func parse(data: Data) -> [String: Any]? {
         let parser = XMLParser(data: data)
         parser.delegate = self
@@ -17,6 +18,7 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
     // MARK: - XMLParserDelegate
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+        currentElementName = elementName
         var dict = attributeDict
         dictionaryStack.append(dict)
         textInProgress = ""
@@ -27,9 +29,12 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        var dict = dictionaryStack.popLast()!
+        guard var dict = dictionaryStack.popLast() else {
+            return
+        }
+
         if !textInProgress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            dict[elementName] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
+            dict[currentElementName ?? ""] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         
         if var top = dictionaryStack.last {
@@ -37,8 +42,8 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
                 if var array = existingValue as? [[String: Any]] {
                     array.append(dict)
                     top[elementName] = array
-                } else if let existingDict = existingValue as? [String: Any] {
-                    top[elementName] = [existingDict, dict]
+                } else {
+                    top[elementName] = [existingValue, dict]
                 }
             } else {
                 top[elementName] = dict
@@ -48,6 +53,7 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
             dictionaryStack.append(dict)
         }
         textInProgress = ""
+        currentElementName = nil
         NSLog("[EeveeSpotify] End Element: \(elementName), dictionary: \(dict)")
     }
 }
