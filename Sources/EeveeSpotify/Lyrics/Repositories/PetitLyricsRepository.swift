@@ -3,8 +3,7 @@ import Foundation
 class XMLDictionaryParser: NSObject, XMLParserDelegate {
     private var dictionaryStack: [[String: Any]] = []
     private var textInProgress: String = ""
-    private var currentElementName: String?
-
+    
     func parse(data: Data) -> [String: Any]? {
         let parser = XMLParser(data: data)
         parser.delegate = self
@@ -18,8 +17,7 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
     // MARK: - XMLParserDelegate
 
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
-        currentElementName = elementName
-        var dict = attributeDict
+        var dict: [String: Any] = attributeDict
         dictionaryStack.append(dict)
         textInProgress = ""
     }
@@ -29,31 +27,32 @@ class XMLDictionaryParser: NSObject, XMLParserDelegate {
     }
 
     func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
-        guard var dict = dictionaryStack.popLast() else {
-            return
-        }
-
-        if !textInProgress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            dict[currentElementName ?? ""] = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedText = textInProgress.trimmingCharacters(in: .whitespacesAndNewlines)
+        var dict = dictionaryStack.popLast()!
+        
+        // If text is not empty, add it to the dictionary
+        if !trimmedText.isEmpty {
+            dict[elementName] = trimmedText
         }
         
         if var top = dictionaryStack.last {
-            if var existingValue = top[elementName] {
+            if let existingValue = top[elementName] {
                 if var array = existingValue as? [[String: Any]] {
                     array.append(dict)
                     top[elementName] = array
-                } else {
-                    top[elementName] = [existingValue, dict]
+                } else if let existingDict = existingValue as? [String: Any] {
+                    top[elementName] = [existingDict, dict]
+                } else if let existingString = existingValue as? String {
+                    top[elementName] = [existingString, trimmedText]
                 }
             } else {
-                top[elementName] = dict
+                top[elementName] = dict.isEmpty ? trimmedText : dict
             }
             dictionaryStack[dictionaryStack.count - 1] = top
         } else {
             dictionaryStack.append(dict)
         }
         textInProgress = ""
-        currentElementName = nil
         NSLog("[EeveeSpotify] End Element: \(elementName), dictionary: \(dict)")
     }
 }
