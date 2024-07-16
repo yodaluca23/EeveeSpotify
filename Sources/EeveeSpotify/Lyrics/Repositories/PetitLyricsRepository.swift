@@ -131,11 +131,11 @@ struct PetitLyricsRepository: LyricsRepository {
             guard let lineString = line["linestring"] as? String,
                   let words = line["word"] as? [[String: Any]],
                   let firstWord = words.first,
-                  let startTimeString = firstWord["starttime"] as? Int else {
+                  let startTimeInt = firstWord["starttime"] as? Int else {
                   continue // Skip lines that don't have necessary data
             }
             
-            let lyricsLineDto = LyricsLineDto(content: lineString, offsetMs: startTime)
+            let lyricsLineDto = LyricsLineDto(content: lineString, offsetMs: startTimeInt)
             lyricsLines.append(lyricsLineDto)
         }
         

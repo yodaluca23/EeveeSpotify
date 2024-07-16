@@ -24,7 +24,7 @@ class MusixmatchLyricsRepository: LyricsRepository {
 
         var finalQuery = query
 
-        finalQuery["usertoken"] = UserDefaults.musixmatchToken
+        finalQuery["usertoken"] = UserDefaults.musilyricsLineDtoxmatchToken
         finalQuery["app_id"] = UIDevice.current.isIpad
             ? "mac-ios-ipad-v1.0"
             : "mac-ios-v2.0"
