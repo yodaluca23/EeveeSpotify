@@ -4,9 +4,7 @@ class BeautifulLyricsRepository: LyricsRepository {
     
     private let apiUrl = "https://beautiful-lyrics.socalifornian.live/lyrics"
     
-    static let shared = BeautifulLyricsRepository()
-    
-    private init() {}
+    init() {}
     
     private func perform(_ trackId: String) throws -> Data {
         let stringUrl = "\(apiUrl)/\(trackId)"
