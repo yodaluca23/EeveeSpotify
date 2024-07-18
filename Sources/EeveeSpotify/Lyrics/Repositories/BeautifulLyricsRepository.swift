@@ -28,7 +28,11 @@ class BeautifulLyricsRepository: LyricsRepository {
             throw error
         }
         
-        return data!
+        guard let responseData = data, !responseData.isEmpty else {
+            throw LyricsError.NoSuchSong
+        }
+        
+        return responseData
     }
     
     private func parseLyrics(_ data: Data) throws -> [LyricsLineDto] {
@@ -64,6 +68,8 @@ class BeautifulLyricsRepository: LyricsRepository {
                 let startTimeMs = Int(startTime * 1000)
                 lyrics.append(LyricsLineDto(content: line, offsetMs: startTimeMs))
             }
+        } else {
+            throw LyricsError.DecodingError
         }
         
         return lyrics
