@@ -10,6 +10,12 @@ extension EeveeLyricsSettingsView {
         text.append("\n\n")
         text.append("lyrics_additional_info".localized)
         
+        text.append("\n\n")
+        // I am too lazy to add localization, this'll be hardcoded...
+        text.append("""
+        BeautifulLyrics: The API used by the Beautiful Lyrics Spicetify extension. Gets lyrics from Apple Music, and Musixmatch, Provides only time-synced lyrics for many songs.
+        """)
+        
         return Text(text)
     }
     

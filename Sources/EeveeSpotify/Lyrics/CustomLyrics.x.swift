@@ -144,6 +144,7 @@ private func loadLyricsForCurrentTrack() throws {
         case .genius: GeniusLyricsRepository()
         case .lrclib: LrcLibLyricsRepository()
         case .musixmatch: MusixmatchLyricsRepository.shared
+        case .beautiful: BeautifulLyricsRepository()
         case .petit: PetitLyricsRepository()
         case .notReplaced: throw LyricsError.InvalidSource
     }
