@@ -67,6 +67,18 @@ class BeautifulLyricsRepository: LyricsRepository {
                 }.joined()
                 let startTimeMs = Int(startTime * 1000)
                 lyrics.append(LyricsLineDto(content: line, offsetMs: startTimeMs))
+                
+                if let background = item["Background"] as? [String: Any],
+                   let backgroundSyllables = background["Syllables"] as? [[String: Any]],
+                   let backgroundStartTime = background["StartTime"] as? Double {
+                    let backgroundLine = backgroundSyllables.map { syllable -> String in
+                        let text = syllable["Text"] as! String
+                        let isPartOfWord = syllable["IsPartOfWord"] as! Bool
+                        return text + (isPartOfWord ? "" : " ")
+                    }.joined().trimmingCharacters(in: .whitespaces)
+                    let backgroundStartTimeMs = Int(backgroundStartTime * 1000)
+                    lyrics.append(LyricsLineDto(content: "(\(backgroundLine))", offsetMs: backgroundStartTimeMs))
+                }
             }
         } else {
             throw LyricsError.DecodingError
