@@ -68,16 +68,20 @@ class BeautifulLyricsRepository: LyricsRepository {
                 let startTimeMs = Int(startTime * 1000)
                 lyrics.append(LyricsLineDto(content: line, offsetMs: startTimeMs))
                 
-                if let background = item["Background"] as? [String: Any],
-                   let backgroundSyllables = background["Syllables"] as? [[String: Any]],
-                   let backgroundStartTime = background["StartTime"] as? Double {
-                    let backgroundLine = backgroundSyllables.map { syllable -> String in
-                        let text = syllable["Text"] as! String
-                        let isPartOfWord = syllable["IsPartOfWord"] as! Bool
-                        return text + (isPartOfWord ? "" : " ")
-                    }.joined().trimmingCharacters(in: .whitespaces)
-                    let backgroundStartTimeMs = Int(backgroundStartTime * 1000)
-                    lyrics.append(LyricsLineDto(content: "(\(backgroundLine))", offsetMs: backgroundStartTimeMs))
+                if let backgrounds = item["Background"] as? [[String: Any]] {
+                    for bg in backgrounds {
+                        guard let bgSyllables = bg["Syllables"] as? [[String: Any]],
+                              let bgStartTime = bg["StartTime"] as? Double else {
+                            continue
+                        }
+                        let bgLine = bgSyllables.map { syllable -> String in
+                            let text = syllable["Text"] as! String
+                            let isPartOfWord = syllable["IsPartOfWord"] as! Bool
+                            return text + (isPartOfWord ? "" : " ")
+                        }.joined().trimmingCharacters(in: .whitespaces)
+                        let bgStartTimeMs = Int(bgStartTime * 1000)
+                        lyrics.append(LyricsLineDto(content: "(\(bgLine))", offsetMs: bgStartTimeMs))
+                    }
                 }
             }
         } else {
