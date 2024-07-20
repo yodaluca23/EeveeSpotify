@@ -46,7 +46,8 @@ class BeautifulLyricsRepository: LyricsRepository {
         var prevEndTime: Double = 0
         
         func addEmptyTimestampIfGap(startTime: Double) {
-            if startTime - prevEndTime > 5 {
+            let gap = UserDefaults.instrumentalgap
+            if startTime - prevEndTime > gap {
                 lyrics.append(LyricsLineDto(content: "♪", offsetMs: Int(prevEndTime * 1000)))
             }
         }

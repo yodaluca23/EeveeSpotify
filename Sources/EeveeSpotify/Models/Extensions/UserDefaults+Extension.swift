@@ -13,6 +13,7 @@ extension UserDefaults {
     private static let lyricsColorsKey = "lyricsColors"
     private static let lyricsOptionsKey = "lyricsOptions"
     private static let hasShownCommonIssuesTipKey = "hasShownCommonIssuesTip"
+    private static let instrumentalgapKey = "instrumentalgap"
 
     static var lyricsSource: LyricsSource {
         get {
@@ -108,6 +109,16 @@ extension UserDefaults {
         }
         set (hasShownCommonIssuesTip) {
             defaults.set(hasShownCommonIssuesTip, forKey: hasShownCommonIssuesTipKey)
+        }
+    }
+    
+    static var instrumentalgap: Double {
+        get {
+            let value = defaults.double(forKey: instrumentalgapKey)
+            return value == 0 ? 5 : value
+        }
+        set (newGap) {
+            defaults.set(newGap, forKey: instrumentalgapKey)
         }
     }
     
