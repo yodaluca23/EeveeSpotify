@@ -111,9 +111,14 @@ class BeautifulLyricsRepository: LyricsRepository {
         let data = try perform(query.spotifyTrackId)
         let lyricsLines = try parseLyrics(data)
         
+        // Check for romanizationStatus
+        let lyricsContent = lyricsLines.map { $0.content }
+        let romanizationStatus: LyricsRomanizationStatus = lyricsContent.canBeRomanized ? .canBeRomanized : .original
+        
         return LyricsDto(
             lines: lyricsLines,
-            timeSynced: true
+            timeSynced: true,
+            romanization: romanizationStatus
         )
     }
 }
