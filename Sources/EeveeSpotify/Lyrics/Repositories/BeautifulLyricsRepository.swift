@@ -43,37 +43,52 @@ class BeautifulLyricsRepository: LyricsRepository {
         }
         
         var lyrics: [LyricsLineDto] = []
+        var prevEndTime: Double = 0
+        
+        func addEmptyTimestampIfGap(startTime: Double) {
+            if startTime - prevEndTime > 5 {
+                lyrics.append(LyricsLineDto(content: "", offsetMs: Int(prevEndTime * 1000)))
+            }
+        }
         
         if type == "Line" {
             for line in content {
                 guard let startTime = line["StartTime"] as? Double,
-                      let text = line["Text"] as? String else {
+                      let text = line["Text"] as? String,
+                      let endTime = line["EndTime"] as? Double else {
                     continue
                 }
+                addEmptyTimestampIfGap(startTime: startTime)
                 let startTimeMs = Int(startTime * 1000)
                 lyrics.append(LyricsLineDto(content: text, offsetMs: startTimeMs))
+                prevEndTime = endTime
             }
         } else if type == "Syllable" {
             for item in content {
                 guard let lead = item["Lead"] as? [String: Any],
                       let syllables = lead["Syllables"] as? [[String: Any]],
-                      let startTime = lead["StartTime"] as? Double else {
+                      let startTime = lead["StartTime"] as? Double,
+                      let endTime = lead["EndTime"] as? Double else {
                     continue
                 }
+                addEmptyTimestampIfGap(startTime: startTime)
                 let line = syllables.map { syllable -> String in
                     let text = syllable["Text"] as! String
                     let isPartOfWord = syllable["IsPartOfWord"] as! Bool
                     return text + (isPartOfWord ? "" : " ")
-                }.joined()
+                }.joined().trimmingCharacters(in: .whitespaces)
                 let startTimeMs = Int(startTime * 1000)
                 lyrics.append(LyricsLineDto(content: line, offsetMs: startTimeMs))
+                prevEndTime = endTime
                 
                 if let backgrounds = item["Background"] as? [[String: Any]] {
                     for bg in backgrounds {
                         guard let bgSyllables = bg["Syllables"] as? [[String: Any]],
-                              let bgStartTime = bg["StartTime"] as? Double else {
+                              let bgStartTime = bg["StartTime"] as? Double,
+                              let bgEndTime = bg["EndTime"] as? Double else {
                             continue
                         }
+                        addEmptyTimestampIfGap(startTime: bgStartTime)
                         let bgLine = bgSyllables.map { syllable -> String in
                             let text = syllable["Text"] as! String
                             let isPartOfWord = syllable["IsPartOfWord"] as! Bool
@@ -81,6 +96,7 @@ class BeautifulLyricsRepository: LyricsRepository {
                         }.joined().trimmingCharacters(in: .whitespaces)
                         let bgStartTimeMs = Int(bgStartTime * 1000)
                         lyrics.append(LyricsLineDto(content: "(\(bgLine))", offsetMs: bgStartTimeMs))
+                        prevEndTime = bgEndTime
                     }
                 }
             }
