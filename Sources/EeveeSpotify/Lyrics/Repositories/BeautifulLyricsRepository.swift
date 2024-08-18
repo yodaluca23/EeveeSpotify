@@ -44,6 +44,7 @@ class BeautifulLyricsRepository: LyricsRepository {
         
         var lyrics: [LyricsLineDto] = []
         var prevEndTime: Double = 0
+        var prevStartTime: Double = 0
         
         func addEmptyTimestampIfGap(startTime: Double) {
             let gap = UserDefaults.instrumentalgap
@@ -81,12 +82,17 @@ class BeautifulLyricsRepository: LyricsRepository {
                 let startTimeMs = Int(startTime * 1000)
                 lyrics.append(LyricsLineDto(content: line, offsetMs: startTimeMs))
                 prevEndTime = endTime
+                prevStartTime = startTime
                 
                 if let backgrounds = item["Background"] as? [[String: Any]] {
                     for bg in backgrounds {
                         guard let bgSyllables = bg["Syllables"] as? [[String: Any]],
                               let bgStartTime = bg["StartTime"] as? Double,
                               let bgEndTime = bg["EndTime"] as? Double else {
+                            continue
+                        }
+                        var isOverlaped = (bgStartTime < prevEndTime && bgEndTime > prevStartTime)
+                        if isOverlaped {
                             continue
                         }
                         addEmptyTimestampIfGap(startTime: bgStartTime)
@@ -98,6 +104,7 @@ class BeautifulLyricsRepository: LyricsRepository {
                         let bgStartTimeMs = Int(bgStartTime * 1000)
                         lyrics.append(LyricsLineDto(content: "(\(bgLine))", offsetMs: bgStartTimeMs))
                         prevEndTime = bgEndTime
+                        prevStartTime = bgStartTime
                     }
                 }
             }
