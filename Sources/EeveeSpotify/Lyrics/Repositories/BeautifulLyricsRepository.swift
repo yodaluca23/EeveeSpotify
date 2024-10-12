@@ -6,22 +6,81 @@ class BeautifulLyricsRepository: LyricsRepository {
     
     init() {}
     
+    func getSpotifyClientToken(completion: @escaping (String?) -> Void) {
+        let url = URL(string: "https://open.spotify.com")!
+        
+        let task = URLSession.shared.dataTask(with: url) { data, response, error in
+            if let error = error {
+                NSLog("[EeveeSpotify] Spotfiy Token Request error: \(error)")
+                completion(nil)
+                return
+            }
+            
+            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                NSLog("[EeveeSpotify] Spotify Token Request Invalid response or status code")
+                completion(nil)
+                return
+            }
+            
+            guard let data = data, let htmlContent = String(data: data, encoding: .utf8) else {
+                NSLog("[EeveeSpotify] Spotify Token Request No data received or data decoding failed")
+                completion(nil)
+                return
+            }
+            
+            do {
+                let regexPattern = "\"accessToken\":\"([^\"]+)\""
+                let regex = try NSRegularExpression(pattern: regexPattern, options: [])
+                let nsRange = NSRange(htmlContent.startIndex..<htmlContent.endIndex, in: htmlContent)
+                
+                if let match = regex.firstMatch(in: htmlContent, options: [], range: nsRange) {
+                    if let tokenRange = Range(match.range(at: 1), in: htmlContent) {
+                        let accessToken = String(htmlContent[tokenRange])
+                        completion(accessToken)
+                        return
+                    }
+                }
+                
+                NSLog("[EeveeSpotify] Spotify Token Request Failed to find access token in HTML")
+                completion(nil)
+            } catch {
+                NSLog("[EeveeSpotify] Spotify Token Request Regex error: \(error)")
+                completion(nil)
+            }
+        }
+        
+        task.resume()
+    }
+
+    
     private func perform(_ trackId: String) throws -> Data {
         let stringUrl = "\(apiUrl)/\(trackId)"
         var request = URLRequest(url: URL(string: stringUrl)!)
-        request.addValue("Bearer litterallyAnythingCanGoHereItJustTakesItLOL", forHTTPHeaderField: "authorization")
         
         let semaphore = DispatchSemaphore(value: 0)
         var data: Data?
         var error: Error?
         
-        let task = URLSession.shared.dataTask(with: request) { response, _, err in
-            error = err
-            data = response
-            semaphore.signal()
+        getSpotifyClientToken { token in
+            if let token = token {
+                request.addValue("Bearer \(token)", forHTTPHeaderField: "authorization")
+            } else {
+                NSLog("[EeveeSpotify] Failed to retrieve Spotify client token, proceeding with default authorization.")
+                request.addValue("Bearer failedToFetchSpotifyToken", forHTTPHeaderField: "authorization")
+            }
+            
+            let task = URLSession.shared.dataTask(with: request) { responseData, _, taskError in
+                if let taskError = taskError {
+                    error = taskError
+                } else {
+                    data = responseData
+                }
+                semaphore.signal()
+            }
+            
+            task.resume()
         }
         
-        task.resume()
         semaphore.wait()
         
         if let error = error {
