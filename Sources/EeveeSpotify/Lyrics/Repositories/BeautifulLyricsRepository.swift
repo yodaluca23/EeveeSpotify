@@ -150,20 +150,36 @@ class BeautifulLyricsRepository: LyricsRepository {
                               let bgEndTime = bg["EndTime"] as? Double else {
                             continue
                         }
-                        var isOverlaped = (bgStartTime < prevEndTime && bgEndTime > prevStartTime)
-                        if isOverlaped {
-                            continue
-                        }
-                        addEmptyTimestampIfGap(startTime: bgStartTime)
                         let bgLine = bgSyllables.map { syllable -> String in
                             let text = syllable["Text"] as! String
                             let isPartOfWord = syllable["IsPartOfWord"] as! Bool
                             return text + (isPartOfWord ? "" : " ")
                         }.joined().trimmingCharacters(in: .whitespaces)
-                        let bgStartTimeMs = Int(bgStartTime * 1000)
-                        lyrics.append(LyricsLineDto(content: "(\(bgLine))", offsetMs: bgStartTimeMs))
-                        prevEndTime = bgEndTime
-                        prevStartTime = bgStartTime
+                        
+                        let isOverlaped = (bgStartTime < prevEndTime && bgEndTime > prevStartTime)
+                        if isOverlaped {
+                            if bgStartTime < prevStartTime {
+                                if let lastLyric = lyrics.last {
+                                    lyrics[lyrics.count - 1] = LyricsLineDto(
+                                        content: "(\(bgLine))\n\(lastLyric.content)",
+                                        offsetMs: Int(bgStartTime * 1000)
+                                    )
+                                }
+                            } else {
+                                if let lastLyric = lyrics.last {
+                                    lyrics[lyrics.count - 1] = LyricsLineDto(
+                                        content: "\(lastLyric.content)\n(\(bgLine))",
+                                        offsetMs: lastLyric.offsetMs
+                                    )
+                                }
+                            }
+                        } else {
+                            addEmptyTimestampIfGap(startTime: bgStartTime)
+                            let bgStartTimeMs = Int(bgStartTime * 1000)
+                            lyrics.append(LyricsLineDto(content: "(\(bgLine))", offsetMs: bgStartTimeMs))
+                            prevEndTime = bgEndTime
+                            prevStartTime = bgStartTime
+                        }
                     }
                 }
             }
