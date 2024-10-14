@@ -171,6 +171,16 @@ class BeautifulLyricsRepository: LyricsRepository {
             throw LyricsError.DecodingError
         }
         
+        lyrics = lyrics.compactMap { line in
+            guard let offset = line.offsetMs else {
+                NSLog("[EeveeSpotify] Skipping line with nil offsetMs")
+                return nil
+            }
+            return line
+        }
+        
+        lyrics.sort { $0.offsetMs! < $1.offsetMs! }
+        
         return lyrics
     }
     
