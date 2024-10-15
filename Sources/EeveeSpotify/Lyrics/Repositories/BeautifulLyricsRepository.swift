@@ -52,37 +52,103 @@ class BeautifulLyricsRepository: LyricsRepository {
         task.resume()
     }
 
-    
-    private func perform(_ trackId: String) throws -> Data {
+    private func fetchNewTrackId(query: LyricsSearchQuery, token: String) -> String? {
+        let artist = query.primaryArtist
+        let song = query.title
+        let queryArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let querySong = song.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        let searchUrlString = "https://api.spotify.com/v1/search?query=artist%3A+\(queryArtist)+track%3A+\(querySong)&type=track&offset=0&limit=1"
+        
+        guard let searchUrl = URL(string: searchUrlString) else {
+            NSLog("[EeveeSpotify] Invalid search URL")
+            return nil
+        }
+        
+        var request = URLRequest(url: searchUrl)
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let semaphore = DispatchSemaphore(value: 0)
+        var trackId: String?
+        
+        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+            defer { semaphore.signal() }
+            
+            guard error == nil else {
+                NSLog("[EeveeSpotify] Error during Spotify search request: \(error!.localizedDescription)")
+                return
+            }
+            
+            guard let data = data else {
+                NSLog("[EeveeSpotify] No data received from Spotify search")
+                return
+            }
+            
+            do {
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                   let tracks = json["tracks"] as? [String: Any],
+                   let items = tracks["items"] as? [[String: Any]],
+                   let href = items.first?["href"] as? String {
+                    if let match = href.range(of: "(?<=tracks/)[a-zA-Z0-9]+", options: .regularExpression) {
+                        trackId = String(href[match])
+                    }
+                }
+            } catch {
+                NSLog("[EeveeSpotify] Failed to parse Spotify search response: \(error.localizedDescription)")
+            }
+        }
+        
+        task.resume()
+        semaphore.wait()
+        
+        return trackId
+    }
+
+    private func perform(_ query: LyricsSearchQuery) throws -> Data {
+        var trackId = query.spotifyTrackId
+        var token: String?
+        let tokenSemaphore = DispatchSemaphore(value: 0)
+        
+        getSpotifyClientToken { fetchedToken in
+            token = fetchedToken
+            tokenSemaphore.signal()
+        }
+        tokenSemaphore.wait()
+        if trackId.count < 4 {
+            NSLog("[EeveeSpotify] Spotify TrackID is less than 4. Assuming this is a local track. Fetching TrackID from Spotify.")
+            if let fetchedTrackId = fetchNewTrackId(query: query, token: token ?? "") {
+                trackId = fetchedTrackId
+                NSLog("[EeveeSpotify] New TrackID fetched: \(trackId)")
+            } else {
+                throw LyricsError.NoSuchSong
+            }
+        }
+
         let stringUrl = "\(apiUrl)/\(trackId)"
         var request = URLRequest(url: URL(string: stringUrl)!)
         
+        if let token = token {
+            request.addValue("Bearer \(token)", forHTTPHeaderField: "authorization")
+        } else {
+            NSLog("[EeveeSpotify] Failed to retrieve Spotify client token, proceeding with default authorization.")
+            request.addValue("Bearer failedToFetchSpotifyToken", forHTTPHeaderField: "authorization")
+        }
+
         let semaphore = DispatchSemaphore(value: 0)
         var data: Data?
         var error: Error?
-        
-        getSpotifyClientToken { token in
-            if let token = token {
-                request.addValue("Bearer \(token)", forHTTPHeaderField: "authorization")
+
+        let task = URLSession.shared.dataTask(with: request) { responseData, _, taskError in
+            if let taskError = taskError {
+                error = taskError
             } else {
-                NSLog("[EeveeSpotify] Failed to retrieve Spotify client token, proceeding with default authorization.")
-                request.addValue("Bearer failedToFetchSpotifyToken", forHTTPHeaderField: "authorization")
+                data = responseData
             }
-            
-            let task = URLSession.shared.dataTask(with: request) { responseData, _, taskError in
-                if let taskError = taskError {
-                    error = taskError
-                } else {
-                    data = responseData
-                }
-                semaphore.signal()
-            }
-            
-            task.resume()
+            semaphore.signal()
         }
         
+        task.resume()
         semaphore.wait()
-        
+
         if let error = error {
             throw error
         }
@@ -201,7 +267,7 @@ class BeautifulLyricsRepository: LyricsRepository {
     }
     
     func getLyrics(_ query: LyricsSearchQuery, options: LyricsOptions) throws -> LyricsDto {
-        let data = try perform(query.spotifyTrackId)
+        let data = try perform(query)
         let lyricsLines = try parseLyrics(data)
         
         // Check for romanizationStatus
